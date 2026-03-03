@@ -117,7 +117,7 @@ namespace NZWalks.API.Controllers
 
             // Map the DTO to Domain Model
             regionDomainModel.Code = updateRegionRequestDto.Code;
-            updateRegionRequestDto.Name = updateRegionRequestDto.Name;
+            regionDomainModel.Name = updateRegionRequestDto.Name;
             regionDomainModel.RegionImageUrl = updateRegionRequestDto.RegionImageUrl;
 
             await dbContext.SaveChangesAsync();
