@@ -6,13 +6,47 @@ using NZWalks.API.Data;
 using NZWalks.API.Mappings;
 using NZWalks.API.Repositories;
 using System.Text;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// Add services to the container.
 
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(option =>
+{
+    option.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "NZ Walks API",
+        Version = "v1"
+    });
+    option.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = JwtBearerDefaults.AuthenticationScheme,
+    });
+    option.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = JwtBearerDefaults.AuthenticationScheme
+                },
+                Scheme = "Oauth2",
+                Name = JwtBearerDefaults.AuthenticationScheme,
+                In = ParameterLocation.Header
+            },
+            new List<string>()
+        }
+    });
+});
 builder.Services.AddDbContext<NZWalksDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("NZWalksConnectionString")));
 
