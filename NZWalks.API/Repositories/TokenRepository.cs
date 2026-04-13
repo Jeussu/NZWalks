@@ -17,23 +17,30 @@ namespace NZWalks.API.Repositories
         {
             // Create claims for the user
             var claims = new List<Claim>();
+            var email = user.Email ?? user.UserName ?? string.Empty;
+            var jwtKey = configuration["Jwt:Key"]
+                ?? throw new InvalidOperationException("JWT key is not configured.");
+            var jwtIssuer = configuration["Jwt:Issuer"]
+                ?? throw new InvalidOperationException("JWT issuer is not configured.");
+            var jwtAudience = configuration["Jwt:Audience"]
+                ?? throw new InvalidOperationException("JWT audience is not configured.");
 
-            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+            claims.Add(new Claim(ClaimTypes.Email, email));
 
             foreach (var role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JWT:Key"]));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
-               configuration["JWT:Issuer"],
-                configuration["JWT:Audience"],
+               jwtIssuer,
+                jwtAudience,
                 claims,
-                expires: DateTime.Now.AddMinutes(15),
+                expires: DateTime.UtcNow.AddMinutes(15),
                 signingCredentials: credentials
             );
 

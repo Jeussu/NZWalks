@@ -10,13 +10,18 @@ namespace NZWalks.API.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
+        private const string DefaultRegistrationRole = "Reader";
+
         private readonly UserManager<IdentityUser> userManager;
+        private readonly RoleManager<IdentityRole> roleManager;
         private readonly ITokenRepository tokenRepository;
 
         public AuthController(UserManager<IdentityUser> userManager,
+            RoleManager<IdentityRole> roleManager,
             ITokenRepository tokenRepository)
         {
             this.userManager = userManager;
+            this.roleManager = roleManager;
             this.tokenRepository = tokenRepository;
         }
 
@@ -32,21 +37,22 @@ namespace NZWalks.API.Controllers
 
             var identityResult = await userManager.CreateAsync(identityUser, registerRequestDto.Password);
 
-            if (identityResult.Succeeded)
+            if (!identityResult.Succeeded)
             {
-                // Add roles to this user
-                if (registerRequestDto.Roles != null && registerRequestDto.Roles.Any())
-                {
-                    identityResult = await userManager.AddToRolesAsync(identityUser, registerRequestDto.Roles);
+                return BadRequest(identityResult.Errors);
+            }
 
-                    if (identityResult.Succeeded)
-                    {
-                        return Ok("User was registered! Please login.");
-                    }
+            if (await roleManager.RoleExistsAsync(DefaultRegistrationRole))
+            {
+                var roleAssignmentResult = await userManager.AddToRoleAsync(identityUser, DefaultRegistrationRole);
+
+                if (!roleAssignmentResult.Succeeded)
+                {
+                    return BadRequest(roleAssignmentResult.Errors);
                 }
             }
 
-            return BadRequest("Something went wrong");
+            return Ok("User was registered! Please login.");
         }
 
         // POST: api/Auth/Login

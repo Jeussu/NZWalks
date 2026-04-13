@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NZWalks.API.CustomActionFilters;
 using NZWalks.API.Models.Domain;
@@ -24,6 +25,7 @@ namespace NZWalks.API.Controllers
         //Create walks
         // Post: /api/walks
         [HttpPost]
+        [Authorize(Roles = "Writer")]
         [ValidateModel]
         public async Task<IActionResult> Create([FromBody] AddWalksRequestDto addWalksRequestDto)
         {
@@ -46,9 +48,6 @@ namespace NZWalks.API.Controllers
         {
             var walksDomainModel = await walksRepository.GetAllAsync(filterOn, filterQuery, sortBy,
                 isAscending ?? true, pageNumber, pageSize);
-
-            // Create an exception
-            throw new Exception("This is a new exception");
 
             //Map Domain model to DTO
             return Ok(mapper.Map<List<WalkDto>>(walksDomainModel));
@@ -73,6 +72,7 @@ namespace NZWalks.API.Controllers
         // Put: /api/walks/{id}
         [HttpPut]
         [Route("{id:guid}")]
+        [Authorize(Roles = "Writer")]
         [ValidateModel]
         public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] UpdateWalkRequestDto updateWalksRequestDto)
         {
@@ -93,6 +93,7 @@ namespace NZWalks.API.Controllers
         // Delete: /api/walks/{id}
         [HttpDelete]
         [Route("{id:guid}")]
+        [Authorize(Roles = "Writer")]
         public async Task<IActionResult> Delete([FromRoute] Guid id)
         {
             var deletedWalkDomainModel = await walksRepository.DeleteAsync(id);

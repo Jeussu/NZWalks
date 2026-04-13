@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace NZWalks.API.CustomActionFilters
@@ -9,7 +10,11 @@ namespace NZWalks.API.CustomActionFilters
         {
             if (context.ModelState.IsValid == false)
             {
-                context.Result = new BadRequestResult();
+                context.Result = new BadRequestObjectResult(new ValidationProblemDetails(context.ModelState)
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "One or more validation errors occurred."
+                });
             }
         }
     }

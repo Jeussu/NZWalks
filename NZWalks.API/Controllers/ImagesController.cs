@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NZWalks.API.Models.Domain;
@@ -19,25 +20,36 @@ namespace NZWalks.API.Controllers
         // POST: api/images/upload
         [HttpPost]
         [Route("Upload")]
+        [Authorize]
         public async Task<IActionResult> Upload([FromForm] ImageUploadRequestDto request)
         {
             ValidateFileUpload(request);
             if (ModelState.IsValid)
             {
+                var fileExtension = Path.GetExtension(request.File!.FileName).ToLowerInvariant();
+
                 // convert DTO to domain model
                 var imageDomainModel = new Image
                 {
                     File = request.File,
-                    FileExtension = Path.GetExtension(request.File.FileName),
+                    FileExtension = fileExtension,
                     FileSizeInBytes = request.File.Length,
-                    FileName = request.FileName,
+                    FileName = Guid.NewGuid().ToString("N"),
                     FileDescription = request.FileDescription,
                 };
 
                 // User repository to upload image 
-                await imageRepository.Upload(imageDomainModel);
+                imageDomainModel = await imageRepository.Upload(imageDomainModel);
 
-                return Ok(imageDomainModel);
+                return Ok(new ImageDto
+                {
+                    Id = imageDomainModel.Id,
+                    FileName = imageDomainModel.FileName,
+                    FileDescription = imageDomainModel.FileDescription,
+                    FileExtension = imageDomainModel.FileExtension,
+                    FileSizeInBytes = imageDomainModel.FileSizeInBytes,
+                    FilePath = imageDomainModel.FilePath
+                });
             }
 
             return BadRequest(ModelState);
