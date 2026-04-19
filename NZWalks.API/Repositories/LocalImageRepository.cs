@@ -8,17 +8,20 @@ namespace NZWalks.API.Repositories
         private readonly IWebHostEnvironment webHostEnvironment;
         private readonly IHttpContextAccessor httpContextAccessor;
         private readonly NZWalksDbContext dbContext;
+        private readonly string imagesFolder;
         public LocalImageRepository(IWebHostEnvironment webHostEnvironment,
             IHttpContextAccessor httpContextAccessor,
-            NZWalksDbContext dbContext)
+            NZWalksDbContext dbContext,
+            IConfiguration configuration)
         {
             this.webHostEnvironment = webHostEnvironment;
             this.httpContextAccessor = httpContextAccessor;
             this.dbContext = dbContext;
+            imagesFolder = configuration["Storage:ImagesFolder"] ?? "Images";
         }
         public async Task<Image> Upload(Image image)
         {
-            var imagesPath = Path.Combine(webHostEnvironment.ContentRootPath, "Images");
+            var imagesPath = Path.Combine(webHostEnvironment.ContentRootPath, imagesFolder);
             Directory.CreateDirectory(imagesPath);
 
             var localFilePath = Path.Combine(imagesPath,

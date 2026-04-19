@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using NZWalks.API.Data;
+using NZWalks.API.Infrastructure;
 using NZWalks.API.Mappings;
 using NZWalks.API.Repositories;
 using System.Text;
@@ -14,13 +15,31 @@ using NZWalks.API.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+var applicationConnectionString = builder.Configuration.GetConnectionString("NZWalksConnectionString")
+    ?? throw new InvalidOperationException("ConnectionStrings:NZWalksConnectionString is not configured.");
+var authConnectionString = builder.Configuration.GetConnectionString("NZWalksAuthConnectionString");
 
-var logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.File("Logs/NzWalks_Log.txt", rollingInterval: RollingInterval.Minute)
-    .MinimumLevel.Warning()
-    .CreateLogger();
+if (string.IsNullOrWhiteSpace(authConnectionString))
+{
+    authConnectionString = applicationConnectionString;
+}
+
+var enableFileLogging = builder.Configuration.GetValue<bool>("LoggingTargets:EnableFile");
+var loggerConfiguration = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console();
+
+if (enableFileLogging)
+{
+    var logsPath = Path.Combine(builder.Environment.ContentRootPath, "Logs");
+    Directory.CreateDirectory(logsPath);
+
+    loggerConfiguration = loggerConfiguration.WriteTo.File(
+        Path.Combine(logsPath, "NzWalks_Log.txt"),
+        rollingInterval: RollingInterval.Day);
+}
+
+var logger = loggerConfiguration.CreateLogger();
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSerilog(logger);
@@ -64,10 +83,12 @@ builder.Services.AddSwaggerGen(option =>
     option.OperationFilter<AuthorizeCheckOperationFilter>();
 });
 builder.Services.AddDbContext<NZWalksDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("NZWalksConnectionString")));
+    options.UseSqlServer(applicationConnectionString, sql =>
+        sql.MigrationsHistoryTable("__EFMigrationsHistory_NZWalks")));
 
 builder.Services.AddDbContext<NZWalksAuthDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("NZWalksAuthConnectionString")));
+    options.UseSqlServer(authConnectionString, sql =>
+        sql.MigrationsHistoryTable("__EFMigrationsHistory_NZWalksAuth")));
 
 builder.Services.AddScoped<IRegionRepository, SQLRegionRepository>();
 builder.Services.AddScoped<IWalksRepository, SQLWalksRepository>();
@@ -117,13 +138,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-var imagesPath = Path.Combine(builder.Environment.ContentRootPath, "Images");
+var imagesFolder = builder.Configuration["Storage:ImagesFolder"];
+if (string.IsNullOrWhiteSpace(imagesFolder))
+{
+    imagesFolder = "Images";
+}
+
+var imagesPath = Path.Combine(builder.Environment.ContentRootPath, imagesFolder);
 Directory.CreateDirectory(imagesPath);
 
 var app = builder.Build();
+var swaggerEnabled = app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled");
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (swaggerEnabled)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -141,11 +169,22 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseStaticFiles(new StaticFileOptions
+await app.InitializeDeploymentAsync();
+
+app.MapGet("/", () => Results.Ok(new
 {
-    FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "Images")),
-    RequestPath = "/Images"
-});
+    Name = "NZWalks.API",
+    Environment = app.Environment.EnvironmentName,
+    Status = "Running",
+    Health = "/health",
+    Swagger = swaggerEnabled ? "/swagger" : null
+}));
+
+app.MapGet("/health", () => Results.Ok(new
+{
+    Status = "Healthy",
+    Utc = DateTime.UtcNow
+}));
 
 app.MapControllers();
 
